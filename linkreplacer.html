@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔨</text></svg>">
+    <title>ドラッグ＆ドロップでテキストファイルを表示</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <h1>LinkReplacer</h1>
+    ソースコード（左）内のリンクをリンクリスト（右）に置き換えます。赤い番号で照合しながら適切な位置にリンクが置き換わるかを確認してから〈リンクを置き換え〉ボタンをクリックしてください。<br />
+    <!-- ドラッグ＆ドロップエリアを横に並べるためのコンテナ -->
+    <div class="drop-areas-container">
+        <div id="drop-area-html" class="drop-area" tabindex="0">
+            ソースコード</br>ここにファイル（.htmlか.txt）をドロップ。<br />ペーストする場合はクリックかタブキーで選択してから</div>
+        <div id="drop-area-text" class="drop-area" tabindex="0">
+            リンクリスト</br>ここにファイル（.txtか.xlsx）をドロップ。<br />ペーストする場合はクリックかタブキーで選択してから</div>
+    </div>
+
+    <!-- 内容を横並びにするためのコンテナ -->
+    <div class="file-content-container">
+        <!-- 左側 -->
+        <div>
+            <div id="result-container-html" class="result-container"></div>
+            <div class="view-controls">
+                <button id="viewToggle" class="toggle-button">HTMLプレビュー表示</button>
+            </div>
+            <div id="file-content-html" style="display: none;"></div>
+            <div id="html-preview" style="display: none;"></div>
+        </div>
+        <!-- 右側 -->
+        <div>
+            <div id="result-container-text" class="result-container"></div>
+            <div id="file-content-text" style="display: none;">
+                <!--ファイルの中身-->
+            </div>
+        </div>
+    </div>
+
+    <!-- 比較と置換のボタン -->
+    <div class="action-controls">
+        <button id="compareButton" class="action-button">リンクを置き換え</button>
+    </div>
+
+    <!-- 比較結果と置き換え結果を表示する -->
+    <div class="compare-container">
+        <div class="copy-button-container">
+            <button id="copyButton" class="copy-button">ソースコードをコピー</button>
+        </div>
+        <div id="compare-result" class="result-container"></div>
+    </div>
+
+    <!-- xlsxライブラリの読み込み -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        // グローバル変数
+        let originalContent = '';
+
+        // UIハンドラー
+        const uiHandler = {
+            displayResult(message, success, targetArea) {
+                const resultContainer = document.getElementById(`result-container-${targetArea}`);
+                if (!resultContainer) {
+                    console.error("Result container not found for targetArea:", targetArea);
+                    return;
+                }
+                resultContainer.style.display = "block";
+                const resultMessage = document.createElement("div");
+                resultMessage.classList.add("result-message", success ? "success" : "error");
+                resultMessage.textContent = message;
+                resultContainer.innerHTML = "";
+                resultContainer.appendChild(resultMessage);
+            }
+        };
+
+        // ファイル処理ハンドラー
+        const fileHandler = {
+            processHTML(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    originalContent = e.target.result;
+                    const fileContentHtmlDiv = document.getElementById("file-content-html");
+                    const htmlPreviewDiv = document.getElementById("html-preview");
+
+                    fileContentHtmlDiv.textContent = originalContent;
+                    htmlPreviewDiv.innerHTML = originalContent;
+
+                    const linkCount = linkHandler.countLinksInHtml(originalContent);
+                    uiHandler.displayResult(`HTMLファイル内のリンク数: ${linkCount}`, true, "html");
+                };
+                reader.readAsText(file);
+            },
+
+            processText(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const fileContent = e.target.result;
+                    const fileContentTextDiv = document.getElementById("file-content-text");
+
+                    if (fileContentTextDiv) {
+                        const lines = fileContent.split('\n');
+                        let urlIndex = 1;
+                        const numberedContent = lines.map(line => {
+                            if (line.trim() !== "" && /\.[a-zA-Z0-9]+/.test(line)) {
+                                return `<div class="url-line"><span class="link-number">${urlIndex++}</span>${line}</div>`;
+                            }
+                            return line;
+                        }).join('\n');
+
+                        fileContentTextDiv.innerHTML = numberedContent;
+                        fileContentTextDiv.style.display = "block";
+
+                        const linkCount = linkHandler.countLinksInText(fileContent);
+                        uiHandler.displayResult(`テキストファイル内のリンク数: ${linkCount}`, true, "text");
+                    }
+                };
+                reader.readAsText(file);
+            },
+
+            processFile(file, targetArea) {
+                const reader = new FileReader();
+
+                if (targetArea === "html" && (file.type === "text/plain" || file.type === "text/html")) {
+                    reader.onload = (e) => {
+                        let fileContent = e.target.result;
+                        originalContent = fileContent;
+                        const linkCount = linkHandler.countLinksInHtml(fileContent);
+
+                        let escapedContent = fileContent.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                        let linkIndex = 1;
+                        escapedContent = escapedContent.replace(/&lt;a href="([^"]+)"/g, function (match, p1) {
+                            const numberBadge = `<span class="link-number">${linkIndex++}</span>`;
+                            const redUrl = `${numberBadge}<span class="red-link">${p1}</span>`;
+                            return `&lt;a href="${redUrl}"`;
+                        });
+
+                        const fileContentHtmlDiv = document.getElementById("file-content-html");
+                        const htmlPreviewDiv = document.getElementById("html-preview");
+
+                        fileContentHtmlDiv.innerHTML = escapedContent;
+
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = fileContent;
+                        const links = tempDiv.getElementsByTagName('a');
+                        Array.from(links).forEach((link, index) => {
+                            link.setAttribute('data-link-index', index + 1);
+                        });
+                        htmlPreviewDiv.innerHTML = tempDiv.innerHTML;
+
+                        uiHandler.displayResult(`HTMLファイル内のリンク数: ${linkCount}`, true, "html");
+                        fileContentHtmlDiv.style.display = "block";
+
+                        this.setupViewToggle();
+                    };
+                    reader.readAsText(file);
+                } else if (targetArea === "text" && file.type === "text/plain") {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const fileContent = e.target.result;
+                        const fileContentTextDiv = document.getElementById("file-content-text");
+
+                        if (fileContentTextDiv) {
+                            const lines = fileContent.split('\n');
+                            let urlIndex = 1;
+                            const numberedContent = lines.map(line => {
+                                if (line.trim() !== "" && /\.[a-zA-Z0-9]+/.test(line)) {
+                                    return `<div class="url-line"><span class="link-number">${urlIndex++}</span>${line}</div>`;
+                                }
+                                return line;
+                            }).join('\n');
+
+                            fileContentTextDiv.innerHTML = numberedContent;
+                            fileContentTextDiv.style.display = "block";
+
+                            const linkCount = linkHandler.countLinksInText(fileContent);
+                            uiHandler.displayResult(`テキストファイル内のリンク数: ${linkCount}`, true, "text");
+                        }
+                    };
+                    reader.readAsText(file);
+                } else if (targetArea === "text" &&
+                    (file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+                        file.name.endsWith(".xlsx"))) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+                        const fileContentTextDiv = document.getElementById("file-content-text");
+                        const isOneDimensional = jsonData.every(row => row.length === 1);
+
+                        if (isOneDimensional) {
+                            const urlList = jsonData.map(row => row[0]);
+                            this.processText(new Blob([urlList.join('\n')], { type: 'text/plain' }));
+                        } else {
+                            uiHandler.displayResult("Excelファイルは1列のデータのみ対応しています", false, "text");
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    const message = targetArea === "html" ? "テキストまたはHTMLファイルをドロップしてください。" : "テキストファイルのみをドロップしてください。";
+                    const targetDiv = targetArea === "html" ? document.getElementById("file-content-html") : document.getElementById("file-content-text");
+                    targetDiv.textContent = message;
+                }
+            },
+
+            setupViewToggle() {
+                const toggleButton = document.getElementById('viewToggle');
+                const sourceView = document.getElementById('file-content-html');
+                const previewView = document.getElementById('html-preview');
+
+                toggleButton.addEventListener('click', function () {
+                    const isShowingPreview = sourceView.style.display === 'none';
+
+                    if (isShowingPreview) {
+                        sourceView.style.display = 'block';
+                        previewView.style.display = 'none';
+                        toggleButton.textContent = 'HTMLプレビュー表示';
+                        toggleButton.classList.remove('active');
+                    } else {
+                        sourceView.style.display = 'none';
+                        previewView.style.display = 'block';
+                        toggleButton.textContent = 'ソースコード表示';
+                        toggleButton.classList.add('active');
+                    }
+                });
+            }
+        };
+
+        // リンク処理ハンドラー
+        const linkHandler = {
+            countLinksInHtml(htmlContent) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlContent, "text/html");
+                const links = doc.querySelectorAll("a");
+                return links.length;
+            },
+
+            countLinksInText(textContent) {
+                const lines = textContent.split('\n');
+                const filteredLines = lines.filter(line => {
+                    const extensionPattern = /\.[a-zA-Z0-9]+/g;
+                    return line.trim() !== "" && extensionPattern.test(line);
+                });
+                return filteredLines.length;
+            },
+
+            replaceLinks() {
+                const htmlContent = originalContent;
+                const fileContentTextDiv = document.getElementById("file-content-text");
+                const compareResult = document.getElementById("compare-result");
+                const compareContainer = document.querySelector(".compare-container");
+
+                if (!htmlContent || !fileContentTextDiv.textContent) {
+                    alert("HTMLファイルとURLリストの両方をドロップしてください。");
+                    return;
+                }
+
+                const urlList = fileContentTextDiv.innerHTML
+                    .split('\n')
+                    .filter(line => line.trim() !== "" && /\.[a-zA-Z0-9]+/.test(line))
+                    .map(line => {
+                        const div = document.createElement('div');
+                        div.innerHTML = line;
+                        const spans = div.getElementsByTagName('span');
+                        while (spans.length > 0) {
+                            spans[0].remove();
+                        }
+                        return div.textContent.trim();
+                    });
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlContent, "text/html");
+                const links = doc.getElementsByTagName('a');
+
+                const replacedUrls = new Set();
+                Array.from(links).forEach((link, index) => {
+                    if (urlList[index]) {
+                        replacedUrls.add(urlList[index]);
+                        link.href = urlList[index];
+                    }
+                });
+
+                let resultHtml = doc.body.innerHTML;
+                resultHtml = resultHtml.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+                resultHtml = resultHtml.replace(/href="([^"]+)"/g, (match, url) => {
+                    const colorClass = replacedUrls.has(url) ? 'blue-link' : 'red-link';
+                    return `href="<span class="${colorClass}">${url}</span>"`;
+                });
+
+                compareResult.innerHTML = `
+            <h3>置換結果（${links.length}個中${urlList.length}個のリンクを置換）</h3>
+            <div class="result-code">${resultHtml}</div>
+        `;
+                compareContainer.style.display = "block";
+
+                const copyButton = document.getElementById('copyButton');
+                copyButton.addEventListener('click', () => {
+                    navigator.clipboard.writeText(doc.body.innerHTML).then(() => {
+                        copyButton.textContent = 'コピーしました！';
+                        copyButton.classList.add('success');
+                        setTimeout(() => {
+                            copyButton.textContent = 'ソースコードをコピー';
+                            copyButton.classList.remove('success');
+                        }, 3000);
+                    });
+                });
+            }
+        };
+
+        // DOMイベントハンドラー
+        const domHandler = {
+            handleDragOver(event) {
+                event.preventDefault();
+                event.target.style.backgroundColor = "#e0e0e0";
+            },
+
+            handleFocus(event) {
+                const area = event.target;
+                area.style.backgroundColor = "#f0f0f0";
+                area.style.borderColor = "#4CAF50";
+                const areaType = area.id === "drop-area-html" ? "HTMLエリア" : "URLリストエリア";
+                area.setAttribute('title', `選択中: ${areaType}`);
+            },
+
+            handleBlur(event) {
+                const area = event.target;
+                area.style.backgroundColor = "#fff";
+                area.style.borderColor = "#ccc";
+            },
+
+            handleDragLeave(event) {
+                event.target.style.backgroundColor = "#fff";
+            },
+
+            handleFileDrop(event) {
+                event.preventDefault();
+                event.target.style.backgroundColor = "#fff";
+                const files = event.dataTransfer.files;
+                const targetArea = event.target.id === "drop-area-html" ? "html" : "text";
+                if (files.length > 0) {
+                    const file = files[0];
+                    fileHandler.processFile(file, targetArea);
+                }
+            },
+
+            handlePaste(event) {
+                event.preventDefault();
+                const area = event.target;
+                const text = event.clipboardData.getData('text/plain');
+                const targetArea = area.id === "drop-area-html" ? "html" : "text";
+                const blob = new Blob([text], { type: 'text/plain' });
+                const file = new File([blob], 'pasted-content.txt', { type: 'text/plain' });
+                fileHandler.processFile(file, targetArea);
+            },
+
+            handleKeyDown(event) {
+                if (event.key === 'Tab') {
+                    const areas = document.querySelectorAll('.drop-area');
+                    areas.forEach(area => {
+                        if (document.activeElement === area) {
+                            this.handleFocus({ target: area });
+                        }
+                    });
+                }
+            }
+        };
+        document.addEventListener("DOMContentLoaded", () => {
+            const dropAreas = document.querySelectorAll('.drop-area');
+            dropAreas.forEach(area => {
+                area.setAttribute('tabindex', '0');
+
+                // ドラッグアンドドロップの処理
+                area.addEventListener('dragover', domHandler.handleDragOver);
+                area.addEventListener('dragleave', domHandler.handleDragLeave);
+                area.addEventListener('drop', domHandler.handleFileDrop);
+
+                // テキストエリアのイベントリスナー
+                area.addEventListener('focus', domHandler.handleFocus);
+                area.addEventListener('blur', domHandler.handleBlur);
+                area.addEventListener('keydown', domHandler.handleKeyDown);
+                area.addEventListener('paste', domHandler.handlePaste);
+            });
+
+            // 置換ボタンのイベントリスナー
+            const compareButton = document.getElementById('compareButton');
+            compareButton.addEventListener('click', linkHandler.replaceLinks);
+        });
+        </script>
+</body>
+
+</html>
