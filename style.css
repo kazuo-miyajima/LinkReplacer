@@ -1,0 +1,332 @@
+:root {
+    --primary-color: #4CAF50;
+    --primary-hover: #45a049;
+    --gray-dark: #666;
+    --gray-light: #ccc;
+    --spacing-small: 10px;
+    --spacing-medium: 20px;
+    --spacing-large: 40px;
+}
+
+/* 全体のコンテナ */
+body {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* コンテナ関連の設定を統一 */
+.drop-areas-container,
+.file-content-container {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-large);
+    margin: 0;
+    padding: 0 var(--spacing-medium);
+}
+
+/* ドラッグ＆ドロップエリアの共通スタイル */
+.drop-area {
+    width: 48%; /* 幅を調整 */
+    height: 120px; /* 高さを縮小 */
+    border: 2px dashed #ccc;
+    border-radius: 10px;
+    text-align: center;
+    padding: 20px; /* パディングを追加 */
+    font-size: 16px; /* フォントサイズを調整 */
+    color: #666;
+    margin: 0; /* マージンを削除 */
+    outline: none; /* デフォルトのフォーカス表示を削除 */
+    transition: all 0.3s ease; /* スムーズな視覚効果 */
+    display: flex; /* Flexboxを使用 */
+    align-items: center; /* 垂直方向の中央揃え */
+    justify-content: center; /* 水平方向の中央揃え */
+    line-height: 1.4; /* 行間を調整 */
+    cursor: default; /* カーソルをデフォルトに */
+    user-select: none; /* テキスト選択を無効化 */
+}
+
+.drop-area br {
+    margin: 5px 0; /* 改行の余白を調整 */
+}
+
+.drop-area:focus {
+    border-color: #4CAF50;
+    box-shadow: 0 0 5px rgba(74, 175, 80, 0.3);
+}
+
+/* アクセシビリティのための視覚的フォーカス表示 */
+.drop-area:focus-visible {
+    outline: 2px solid #4CAF50;
+    outline-offset: 2px;
+}
+
+/* 内容を横並びにするためのコンテナ */
+.file-content-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 40px; /* 左右の間隔を40pxに */
+    margin: 0;
+    padding: 0 20px; /* 左右に20pxの余白 */
+}
+
+/* 各ファイルエリア（HTMLとテキスト）のコンテナ */
+.file-content-container > div {
+    display: flex;
+    flex-direction: column;
+    width: 48%; /* 幅を調整 */
+    margin: 0;
+}
+
+/* ファイル内容表示エリアの共通スタイル */
+#file-content-html, #file-content-text {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin: 10px 0;
+    min-height: 100px;
+    background-color: #fff;
+    font-family: monospace;
+    font-size: 14px;
+    overflow: auto;
+    max-height: 400px;
+}
+
+/* <a>タグを赤く表示 */
+.red-link {
+    color: red;  /* 未置換のリンク */
+}
+
+.blue-link {
+    color: blue;  /* 置換済みのリンク */
+}
+
+/* リンク番号のスタイル */
+.link-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #ff4444;
+    color: white;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 12px;
+    margin-right: 4px;
+    font-weight: bold;
+}
+
+/* ファイル内容表示エリアでの番号の位置調整 */
+#file-content-text .link-number {
+    margin-right: 8px;
+}
+
+/* 検査結果のテキストを目立たせるためのスタイル */
+.result-message {
+    margin-bottom: 10px;
+    font-weight: bold;
+    color: #333;
+}
+
+.result-message.success {
+    color: green;
+}
+
+.result-message.error {
+    color: red;
+}
+
+/* 検査結果を表示するエリア */
+.result-container {
+    padding: 5px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* ビュー切り替えコントロール */
+.view-controls {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* ボタン関連のスタイルを統一 */
+.action-button,
+.copy-button,
+.toggle-button {
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+/* トグルスイッチのコンテナ */
+.toggle-button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 15px 5px 45px;
+    background-color: #f0f0f0;
+    color: #666;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+/* スイッチの丸い部分 */
+.toggle-button::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+/* アクティブ状態（プレビュー表示時） */
+.toggle-button.active {
+    background-color: #4CAF50;
+    color: white;
+    padding: 5px 45px 5px 15px;
+}
+
+/* アクティブ状態の丸い部分 */
+.toggle-button.active::before {
+    left: calc(100% - 25px);
+}
+
+/* ホバー効果 */
+.toggle-button:hover {
+    opacity: 0.9;
+}
+
+#html-preview {
+    border: 1px solid #ccc;
+    padding: 10px;
+    background-color: white;
+    min-height: 100px;
+    overflow: auto;
+}
+
+/* プレビュー内のリンクのスタイル */
+#html-preview a {
+    position: relative;
+    padding: 2px 4px;
+}
+
+#html-preview a::before {
+    content: attr(data-link-index);
+    position: absolute;
+    top: -8px;
+    left: 0;
+    font-size: 10px;
+    color: white;
+    background-color: #ff4444;
+    padding: 0 2px;
+    border-radius: 2px;
+    min-width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#html-preview a:hover {
+    /* スタイルなし - 赤枠のみ表示 */
+}
+
+/* アクションボタンのコンテナ */
+.action-controls {
+    margin: 20px 0;
+    text-align: center;
+}
+
+/* アクションボタンのスタイル */
+.action-button {
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.action-button:hover {
+    background-color: #45a049;
+}
+
+/* 比較結果コンテナ */
+.compare-container {
+    margin-top: 20px;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f8f8f8;
+    display: none; /* 初期状態は非表示 */
+}
+
+.compare-container h3 {
+    color: #333;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+/* 結果コードのスタイル */
+.result-code {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background-color: white;
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin: 10px 0;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    overflow: auto;
+    max-height: 500px;
+    text-align: left;  /* 左揃えに変更 */
+}
+
+/* コピーボタンのコンテナ */
+.copy-button-container {
+    text-align: right;
+    margin-top: 10px;
+}
+
+/* コピーボタンのスタイル */
+.copy-button {
+    padding: 8px 16px;
+    font-size: 14px;
+    background-color: #666;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.copy-button:hover {
+    background-color: #555;
+}
+
+.copy-button.success {
+    background-color: #4CAF50;
+}
+
+/* マージンとパディングを標準化 */
+.result-container,
+.compare-container,
+.action-controls {
+    padding: var(--spacing-small);
+    margin: var(--spacing-medium) 0;
+}
